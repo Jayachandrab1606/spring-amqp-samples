@@ -16,6 +16,8 @@
 
 package org.springframework.amqp.rabbit.stocks.config;
 
+import org.cloudfoundry.runtime.env.CloudEnvironment;
+import org.cloudfoundry.runtime.env.RabbitServiceInfo;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
@@ -27,6 +29,8 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 /**
  * Provides shared configuration between Client and Server.  
@@ -56,17 +60,44 @@ public abstract class AbstractStockAppRabbitConfiguration {
 	
 	@Value("${amqp.port:5672}") 
 	private int port = 5672;
-	
 
 	protected abstract void configureRabbitTemplate(RabbitTemplate template);
 
 	@Bean
 	public ConnectionFactory connectionFactory() {
 		//TODO make it possible to customize in subclasses.
-		CachingConnectionFactory connectionFactory = new CachingConnectionFactory("localhost");
-		connectionFactory.setUsername("guest");
-		connectionFactory.setPassword("guest");
+		String hostname;
+		int port;
+		String username;
+		String password;
+		String vHost;
+
+		CloudEnvironment cloudEnv = new CloudEnvironment();
+		if (cloudEnv.isCloudFoundry()) {
+			List<RabbitServiceInfo> serviceInfos = cloudEnv.getServiceInfos(RabbitServiceInfo.class);
+			if (serviceInfos.size() < 1) {
+				throw new RuntimeException("At least one RabbitMQ service must be bound to this application.");
+			}
+			RabbitServiceInfo serviceInfo = serviceInfos.get(0);
+
+			hostname = serviceInfo.getHost();
+			port = serviceInfo.getPort();
+			username = serviceInfo.getUserName();
+			password = serviceInfo.getPassword();
+			vHost = serviceInfo.getVirtualHost();
+		} else {
+			hostname = "localhost";
+			port = this.port;
+			username = "guest";
+			password = "guest";
+			vHost = "/";
+		}
+
+		CachingConnectionFactory connectionFactory = new CachingConnectionFactory(hostname);
+		connectionFactory.setUsername(username);
+		connectionFactory.setPassword(password);
 		connectionFactory.setPort(port);
+		connectionFactory.setVirtualHost(vHost);
 		return connectionFactory;
 	}
 

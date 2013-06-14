@@ -1,0 +1,13 @@
+---
+applications:
+- name: spring-stocks
+  memory: 512M
+  instances: 1
+  url: spring-stocks.${target-base}
+  path: target/spring-rabbit-stocks-1.0.0.BUILD-SNAPSHOT.war
+  services:
+    stocks-rabbit:
+      label: cloudamqp
+      provider: cloudamqp
+      version: n/a
+      plan: lemur
